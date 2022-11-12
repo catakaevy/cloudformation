@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  This is CloudFront Distribution Template for Website set
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: The domain name for your website in Route53
+    AllowedPattern: (?!-)[a-zA-Z0-9-.]{1,63}(?<!-)
+    ConstraintDescription: must be a valid DNS zone name pattern 
+
+  AcmCertificateArn:
+    Type: String
+    Description: The ARN of ACM certificate.
+    AllowedPattern: arn:aws:acm:.*
+
+  WebsiteBucketDomainName:
+    Type: String
+    Description: This value from S3 Stack
+  
+  CfOAI:
+    Type: String
+    Description: This value from CloudFrontOriginAccessIdentity Stack
+  
+  CfCachePolicy:
+    Type: String
+    Description: This value from CloudFrontCachePolicy Stack
+
+Resources:
+  WebsiteCloudfront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Sub www.${DomainName}
+        Origins:
+          - Id: S3Origin
+            DomainName: !Ref WebsiteBucketDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CfOAI}
+        Enabled: true
+        DefaultRootObject: index.html
+        Comment: !Sub ${AWS::StackName} distribution
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: !Ref CfCachePolicy
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+        HttpVersion: 'http2'
+        PriceClass: PriceClass_200
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+
+Outputs:
+  CfDomainName:
+    Value: !GetAtt [WebsiteCloudfront, DomainName]
+    Export:
+      Name: CfDomainName

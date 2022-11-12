@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  Are you sure you finished the registration of NS?
+  Certificate creation at us-east-1 for CloudFront
+  WARNING: sometimes this template takes too long to complete! Consider operating ManagementConsole
+Parameters:
+  DomainName:
+    Description: DomainName & Are you sure you are at us-east-1?
+    Type: String
+  HostedZoneId:
+    Description: HostedZoneId & Are you sure you are at us-east-1?
+    Type: String
+
+Resources:
+  CertificateManagerCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub "*.${DomainName}"
+      DomainValidationOptions:
+        -
+          DomainName: !Sub "*.${DomainName}"
+          HostedZoneId: !Ref HostedZoneId
+      ValidationMethod: DNS
+

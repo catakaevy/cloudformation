@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template for S3Bucket, BucketPolicy, CloudFront Distribution, CloudFront Cachepolicy, CloudFront OAI, Route53 record for CloudFront
+Parameters: 
+  S3BucketName:
+    Type: String
+
+  AcmCertificateArn:
+    Type: String
+    Description: The ARN of ACM certificate.
+    AllowedPattern: arn:aws:acm:.*
+
+  DomainName:
+    Type: String
+    Description: The domain name for your website in Route53
+    AllowedPattern: (?!-)[a-zA-Z0-9-.]{1,63}(?<!-)
+    ConstraintDescription: must be a valid DNS zone name pattern 
+  
+  HostedZoneId:
+    Type: String
+    Description: Amazon Route 53 hostedzoneId which you created in advanced
+  
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub ${S3BucketName}
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+  S3BucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          Action:
+          - "s3:GetObject"
+          Sid: "1"
+          Effect: "Allow"
+          Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+          Principal:
+            AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}
+
+  WebsiteCloudfront:
+    Type: AWS::CloudFront::Distribution
+    DependsOn:
+      - S3Bucket
+      - CloudFrontCachePolicy
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Sub www.${DomainName}
+        Origins:
+          - Id: S3Origin
+            DomainName: !Sub '${S3Bucket}.s3.${AWS::Region}.amazonaws.com'
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
+        Enabled: true
+        DefaultRootObject: index.html
+        Comment: !Sub ${AWS::StackName} distribution
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: !Ref CloudFrontCachePolicy #This managed policy could not work because does not apply for query params
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+        HttpVersion: 'http2'
+        PriceClass: PriceClass_200
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+
+  CloudFrontOriginAccessIdentity:
+      Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+      Properties:
+        CloudFrontOriginAccessIdentityConfig:
+          Comment: !Sub 'CloudFront OAI in ${AWS::StackName}'
+  
+  CloudFrontCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: CloudFrontCachePolicy
+        Comment: !Sub 'CloudFront CachePolicy in ${AWS::StackName}'
+        DefaultTTL: 86400
+        MaxTTL: 31536000
+        MinTTL: 1
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig: 
+            CookieBehavior: none
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig: 
+            HeaderBehavior: none
+          QueryStringsConfig: 
+            QueryStringBehavior: all
+
+  WebsiteDNSName:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+        - Name: !Sub "www.${DomainName}"
+          Type: A
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2
+            DNSName: !GetAtt [WebsiteCloudfront, DomainName]
+

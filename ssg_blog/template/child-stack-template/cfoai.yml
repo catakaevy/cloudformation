@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This is CloudFront Origin Access Identity Template for Website-set
+  
+Resources:
+  CloudFrontOriginAccessIdentity:
+      Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+      Properties:
+        CloudFrontOriginAccessIdentityConfig:
+          Comment: !Sub 'CloudFront OAI in ${AWS::StackName}'
+  
+Outputs:
+  CfOAI:
+    Value: !Ref CloudFrontOriginAccessIdentity
+    Export:
+      Name: CfOAI

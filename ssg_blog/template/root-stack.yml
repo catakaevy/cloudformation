@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This is Root Stack Template for Website-Set
+Parameters:
+  TemplateS3:
+    Type: String
+  TemplateCloudFrontDistribution:
+    Type: String
+  TemplateCloudFrontCachePolicy:
+    Type: String
+  TemplateCloudFrontOriginAccessIdentity:
+    Type: String
+  TemplateRoute53Record:
+    Type: String
+
+  S3BucketName:
+    AllowedPattern: ^[a-z0-9.-]*$
+    Type: String
+  HostedZoneId:
+    Type: String
+    Description: Amazon Route 53 hostedzoneId which you created in advanced
+  DomainName:
+    Type: String
+    Description: The domain name for your website in Route53
+    AllowedPattern: (?!-)[a-zA-Z0-9-.]{1,63}(?<!-)
+    ConstraintDescription: must be a valid DNS zone name pattern
+  AcmCertificateArn:
+    Type: String
+    Description: The ARN of ACM certificate.
+    AllowedPattern: arn:aws:acm:.*
+
+    
+Resources:
+  CloudFrontCachePolicy:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Ref TemplateCloudFrontCachePolicy
+
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Ref TemplateCloudFrontOriginAccessIdentity
+
+  S3:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Ref TemplateS3
+      Parameters: 
+        S3BucketName: !Ref S3BucketName
+        CfOAI:
+          Fn::GetAtt:
+          - CloudFrontOriginAccessIdentity
+          - Outputs.CfOAI
+    DependsOn:
+      - CloudFrontOriginAccessIdentity
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Ref TemplateCloudFrontDistribution
+      Parameters:
+        DomainName: !Ref DomainName
+        AcmCertificateArn: !Ref AcmCertificateArn
+        CfOAI:
+          Fn::GetAtt:
+          - CloudFrontOriginAccessIdentity
+          - Outputs.CfOAI
+        WebsiteBucketDomainName:
+          Fn::GetAtt:
+          - S3
+          - Outputs.WebsiteBucketDomainName
+        CfCachePolicy:
+          Fn::GetAtt:
+          - CloudFrontCachePolicy
+          - Outputs.CfCachePolicy
+    DependsOn:
+      - CloudFrontCachePolicy
+      - CloudFrontOriginAccessIdentity
+      - S3
+
+  Route53RecordSet:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Ref TemplateRoute53Record
+      Parameters:
+        HostedZoneId: !Ref HostedZoneId
+        DomainName: !Ref DomainName
+        CfDomainName:
+          Fn::GetAtt:
+          - CloudFrontDistribution
+          - Outputs.CfDomainName        
+    DependsOn:
+      - CloudFrontDistribution

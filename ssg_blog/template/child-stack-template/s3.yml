@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This is Template for Website-hosting S3 for React app
+Parameters:
+  S3BucketName:
+    AllowedPattern: ^[a-z0-9.-]*$
+    Type: String
+  CfOAI:
+    Description: The shared Value will be passed to this param by the parent stack
+    Type: String
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub ${S3BucketName}
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+  S3BucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          Action:
+          - "s3:GetObject"
+          Sid: "1"
+          Effect: "Allow"
+          Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+          Principal:
+            AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CfOAI}"
+
+Outputs:
+  WebsiteBucketName:
+    Value: !Ref S3Bucket
+    Export:
+      Name: WebsiteBucketName
+  WebsiteBucketDomainName:
+    Value: !GetAtt S3Bucket.DomainName
+    Export:
+      Name: WebsiteBucketDomainName

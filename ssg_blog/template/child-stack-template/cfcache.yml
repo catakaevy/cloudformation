@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This is CloudFrontCachePolicy Template for Website-set
+  Unfortunately, AWS Recommended managed policy could not work because it does not apply for query params
+
+Resources:
+  CloudFrontCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: NestedCloudFrontCachePolicy
+        Comment: !Sub 'CloudFront CachePolicy in ${AWS::StackName}'
+        DefaultTTL: 86400
+        MaxTTL: 31536000
+        MinTTL: 1
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig: 
+            CookieBehavior: none
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig: 
+            HeaderBehavior: none
+          QueryStringsConfig: 
+            QueryStringBehavior: all
+  
+Outputs:
+  CfCachePolicy:
+    Value: !Ref CloudFrontCachePolicy
+    Export:
+      Name: CfCachePolicy
